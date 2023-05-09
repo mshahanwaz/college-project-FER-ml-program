@@ -10,23 +10,30 @@ import time
 from playsound import playsound
 import os
 
-face_classifier = cv2.CascadeClassifier(
-    cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-classifier = load_model(r'FER_Model.h5')
+# Paths
+MODEL_PATH = "FER_Model.h5"
+AUDIO_FILE_PATH = "/hardware/sound/alert.wav"
+USB_PORT = "/dev/ttyUSB0"
+FER_SERVER_URL = "https://fer-emotions.onrender.com/fer"
 
-class_labels = ['Angry', 'Happy', 'Neutral', 'Sad', 'Surprise']
+# Classifier
+face_classifier = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+classifier = load_model(MODEL_PATH)
 
-cap = cv2.VideoCapture(0)
-
+# Number of emotions as labels
+class_labels = ["Angry", "Happy", "Neutral", "Sad", "Surprise"]
 currEmotion = False
 
-arduino = serial.Serial("/dev/ttyUSB0", 115200)
+# arduino = serial.Serial(USB_PORT, 115200)
+cap = cv2.VideoCapture(0)
 
-def post_function(url, emotionObject):
-    requests.post(url, json=emotionObject)
+# API POST request to server
+def post_function(emotionObject):
+    requests.post(FER_SERVER_URL, json=emotionObject)
 
-def play_sound():
-    audio_file = os.getcwd() + '/sounds/alert.wav'
+# Alert the user
+def alert():
+    audio_file = os.getcwd() + AUDIO_FILE_PATH
     playsound(audio_file)
 
 while True:
@@ -40,7 +47,7 @@ while True:
         roi_gray = cv2.resize(roi_gray, (48, 48), interpolation=cv2.INTER_AREA)
 
         if np.sum([roi_gray]) != 0:
-            roi = roi_gray.astype('float')/255.0
+            roi = roi_gray.astype("float")/255.0
             roi = img_to_array(roi)
             roi = np.expand_dims(roi, axis=0)
 
@@ -49,11 +56,10 @@ while True:
             label = class_labels[pos]
             label_position = (x, y)
 
-            url = 'https://fer-emotions.onrender.com/fer'
             time_stamp = time.time() * 1000
-            emotionObject = {'emotion': label, 'timestamp': time_stamp}
-            x = threading.Thread(target=post_function, args=(url, emotionObject))
-            y = threading.Thread(target=play_sound, args=())
+            emotionObject = { "emotion": label, "timestamp": time_stamp }
+            x = threading.Thread(target=post_function, args=(emotionObject,))
+            y = threading.Thread(target=alert)
 
             if not currEmotion:
                 currEmotion = label
@@ -66,13 +72,13 @@ while True:
 
             cv2.putText(frame, label, label_position,
                         cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 3)
-            arduino.write((str(pos)).encode())
+            # arduino.write((str(pos)).encode())
         else:
-            cv2.putText(frame, 'No Face Found', (20, 60),
+            cv2.putText(frame, "No Face Found", (20, 60),
                         cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 3)
-            arduino.write((str(5)).encode())
-    cv2.imshow('Emotion Detector', frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+            # arduino.write((str(5)).encode())
+    cv2.imshow("Emotion Detector", frame)
+    if cv2.waitKey(1) & 0xFF == ord("q"):
         break
 
 cap.release()

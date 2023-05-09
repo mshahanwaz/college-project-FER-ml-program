@@ -1,0 +1,9 @@
+keras
+tensorflow
+pyserial
+playsound
+opencv-python
+pillow
+scikit-learn
+seaborn
+numpy
